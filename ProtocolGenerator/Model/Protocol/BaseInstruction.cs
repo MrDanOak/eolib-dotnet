@@ -30,6 +30,8 @@ public abstract class BaseInstruction : IProtocolInstruction
 
     protected virtual bool DeserializeToLocal => false;
 
+    protected virtual bool DeserializeToLocal => false;
+
     public List<IProtocolInstruction> Instructions { get; protected set; } = new();
 
     public virtual List<ProtocolStruct> GetNestedTypes() => new();
