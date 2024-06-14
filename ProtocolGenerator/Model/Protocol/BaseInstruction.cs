@@ -22,6 +22,8 @@ public abstract class BaseInstruction : IProtocolInstruction
 
     protected virtual bool IsReadOnly => false;
 
+    private bool IsNotReadOnly => IsReadOnly is false;
+
     public List<IProtocolInstruction> Instructions { get; protected set; } = new();
 
     public virtual List<ProtocolStruct> GetNestedTypes() => new();
@@ -113,7 +115,7 @@ public abstract class BaseInstruction : IProtocolInstruction
             state.NewLine();
         }
 
-        if (!TypeInfo.IsEnum && TypeInfo.EoType.HasFlag(EoType.Struct))
+        if (TypeInfo.IsEnum is false && TypeInfo.EoType.HasFlag(EoType.Struct))
         {
             state.Text(Name, indented: true);
             if (TypeInfo.IsArray)
@@ -150,13 +152,13 @@ public abstract class BaseInstruction : IProtocolInstruction
             // - If the field is a boolean, it requires a conversion to bool; zero for false and nonzero for true
             // - If the field has an offset, it requires adjustment based on the provided offset value
             // - If the field doesn't have an associated property, ignore the value
-            var preDeserialize = HasProperty && !IsReadOnly
+            var preDeserialize = HasProperty && IsNotReadOnly
                 ? string.Format($"{Name}{{0}} = {{1}}",
                     $"{(TypeInfo.IsArray ? "[ndx]" : string.Empty)}",
                     $"{(TypeInfo.IsEnum ? $"({TypeInfo.PropertyType})" : string.Empty)}")
                 : string.Empty;
 
-            var postDeserialize = HasProperty && !IsReadOnly
+            var postDeserialize = HasProperty && IsNotReadOnly
                 ? string.Format("{0}{1}",
                     $"{(TypeInfo.EoType.HasFlag(EoType.Bool) ? " != 0" : string.Empty)}",
                     $"{(Offset != 0 ? $" + {Offset}" : string.Empty)}")

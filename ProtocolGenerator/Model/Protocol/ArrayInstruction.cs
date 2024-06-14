@@ -28,9 +28,9 @@ public class ArrayInstruction : BaseInstruction
     public override void GenerateSerialize(GeneratorState state, IReadOnlyList<IProtocolInstruction> outerInstructions)
     {
         var delimited = _xmlArrayInstruction.Delimited.HasValue && _xmlArrayInstruction.Delimited.Value;
-        var trailingDelimiter = !_xmlArrayInstruction.TrailingDelimiter.HasValue || _xmlArrayInstruction.TrailingDelimiter.Value;
+        var trailingDelimiter = _xmlArrayInstruction.TrailingDelimiter.HasValue is false || _xmlArrayInstruction.TrailingDelimiter.Value;
 
-        if (!string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length))
+        if (string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length) is false)
         {
             var lenExpr = GetLengthExpression(_xmlArrayInstruction.Length, outerInstructions);
             state.For("int ndx = 0", $"ndx < {lenExpr}", "ndx++");
@@ -41,7 +41,7 @@ public class ArrayInstruction : BaseInstruction
         }
         state.BeginBlock();
 
-        if (delimited && !trailingDelimiter)
+        if (delimited && trailingDelimiter is false)
         {
             state.Text("if (ndx > 0)", indented: true);
             state.NewLine();
@@ -73,12 +73,12 @@ public class ArrayInstruction : BaseInstruction
         var delimited = _xmlArrayInstruction.Delimited.HasValue && _xmlArrayInstruction.Delimited.Value;
 
         string loopCondition;
-        if (!string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length))
+        if (string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length) is false)
         {
             var lenExpr = GetLengthExpression(_xmlArrayInstruction.Length, outerInstructions);
             loopCondition = $"ndx < {lenExpr}";
         }
-        else if (!delimited && _xmlArrayInstruction.IsChunked)
+        else if (delimited is false && _xmlArrayInstruction.IsChunked)
         {
             try
             {
@@ -102,32 +102,33 @@ public class ArrayInstruction : BaseInstruction
 
         base.GenerateDeserialize(state, outerInstructions);
 
-        if (delimited && _xmlArrayInstruction.IsChunked)
+        if (delimited is false || _xmlArrayInstruction.IsChunked is false)
         {
-            var trailingDelimiter = !_xmlArrayInstruction.TrailingDelimiter.HasValue || _xmlArrayInstruction.TrailingDelimiter.Value;
-            if (!trailingDelimiter)
-            {
-                if (string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length))
-                    throw new InvalidOperationException($"delimited arrays with trailing-delimiter=false must have a length (array {Name})");
+            state.EndBlock();
+            return;
+        }
+        
+        var trailingDelimiter = _xmlArrayInstruction.TrailingDelimiter.HasValue is false || _xmlArrayInstruction.TrailingDelimiter.Value;
+        if (trailingDelimiter is false)
+        {
+            if (string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length))
+                throw new InvalidOperationException($"delimited arrays with trailing-delimiter=false must have a length (array {Name})");
 
-                var lenExpr = GetLengthExpression(_xmlArrayInstruction.Length, outerInstructions);
-                state.Text($"if (ndx + 1 < {lenExpr})", indented: true);
-                state.NewLine();
-                state.BeginBlock();
-            }
-
-            state.Text("reader", indented: true);
-            state.MethodInvocation("NextChunk");
-            state.Text(";", indented: false);
+            var lenExpr = GetLengthExpression(_xmlArrayInstruction.Length, outerInstructions);
+            state.Text($"if (ndx + 1 < {lenExpr})", indented: true);
             state.NewLine();
-
-            if (!trailingDelimiter)
-            {
-                state.EndBlock();
-            }
+            state.BeginBlock();
         }
 
-        state.EndBlock();
+        state.Text("reader", indented: true);
+        state.MethodInvocation("NextChunk");
+        state.Text(";", indented: false);
+        state.NewLine();
+
+        if (trailingDelimiter is false)
+        {
+            state.EndBlock();
+        }
     }
 
     public override void GenerateToString(GeneratorState state)

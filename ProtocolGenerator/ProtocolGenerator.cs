@@ -23,9 +23,9 @@ public class ProtocolGenerator
         {
             var split = _filePath.Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
             var parts = split
-                .SkipWhile(x => !x.Equals("xml", StringComparison.OrdinalIgnoreCase))
+                .SkipWhile(x => x.Equals("xml", StringComparison.OrdinalIgnoreCase) is false)
                 .Skip(1)
-                .TakeWhile(x => !x.Equals("protocol.xml", StringComparison.OrdinalIgnoreCase))
+                .TakeWhile(x => x.Equals("protocol.xml", StringComparison.OrdinalIgnoreCase) is false)
                 .Select(x => char.ToUpper(x[0]) + x.Substring(1));
             var joinedParts = string.Join(".", parts);
             return string.IsNullOrWhiteSpace(joinedParts) ? "protocol.g.cs" : $"protocol.{joinedParts}.g.cs";
@@ -99,7 +99,7 @@ public class ProtocolGenerator
             string.IsNullOrWhiteSpace(inputType.BaseType) ? "ISerializable" : inputType.BaseType
         );
         state.BeginBlock();
-        if (!inputType.IsInterface)
+        if (inputType.IsInterface is false)
         {
             GenerateStructureImplementation(
                 state,
@@ -117,11 +117,13 @@ public class ProtocolGenerator
         state.Comment(inputType.Comment);
         state.Attribute("Generated");
 
-        var clientOrServer = HintName.Contains("Client")
-            ? "Client"
-            : HintName.Contains("Server")
-                ? "Server"
-                : string.Empty;
+        var clientOrServer = HintName switch 
+        {
+            var hint when hint.Contains("Client") => "Client",
+            var hint when hint.Contains("Server") => "Server", 
+            _ => string.Empty
+        };
+
         var typeName = $"{inputType.Family}{inputType.Action}{clientOrServer}Packet";
 
         state.TypeDeclaration(GeneratorState.Visibility.Public, GeneratorState.ObjectType.Class, typeName, "IPacket");
@@ -152,13 +154,10 @@ public class ProtocolGenerator
     {
         // Generate nested types. Each switch case is represented by a nested structure with data relevant to the switch case.
         // The switch case as a member is represented by an interface, with each "case" being a different implementation of that interface.
-        foreach (var inst in instructions)
+        foreach (var nestedType in instructions.SelectMany(inst => inst.GetNestedTypes()))
         {
-            foreach (var nestedType in inst.GetNestedTypes())
-            {
-                Generate(nestedType, state);
-                state.NewLine();
-            }
+            Generate(nestedType, state);
+            state.NewLine();
         }
 
         // Generate ByteSize property. This property is required for parity with how the client handles certain packets.

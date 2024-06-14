@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ProtocolGenerator.Model.Xml;
 using ProtocolGenerator.Types;
@@ -51,22 +52,20 @@ public class GeneratorState
     public void TypeDeclaration(Visibility visibility, ObjectType objectType, string typeName, string baseType = "")
     {
         AppendIndented($"{String(visibility)} {String(objectType)} {typeName}");
-        if (!string.IsNullOrWhiteSpace(baseType))
-        {
-            var convertedType = TypeInfo.GetDotNetType(baseType);
-            if (!string.IsNullOrWhiteSpace(convertedType) && convertedType != "int")
-            {
-                AppendLine($" : {convertedType}");
-            }
-            else
-            {
-                AppendLine();
-            }
-        }
-        else
+        if (string.IsNullOrWhiteSpace(baseType))
         {
             AppendLine();
+            return;
         }
+            
+        var convertedType = TypeInfo.GetDotNetType(baseType);
+        if (string.IsNullOrWhiteSpace(convertedType) is false && convertedType != "int")
+        {
+            AppendLine($" : {convertedType}");
+            return;
+        }
+
+        AppendLine();
     }
 
     public void MethodDeclaration(Visibility visibility, string returnType, string methodName, List<(string, string)> parameterNamesAndTypes)
@@ -76,11 +75,7 @@ public class GeneratorState
 
     public void BeginBlock(bool newLine = true, bool indented = true)
     {
-        Action<string> fn = newLine ? AppendIndentedLine : AppendIndented;
-        if (!indented)
-            fn = newLine ? AppendLine : Append;
-
-        fn("{");
+        GetAppendFn(newLine, indented)("{");
 
         IncreaseIndent();
     }
@@ -89,11 +84,7 @@ public class GeneratorState
     {
         DecreaseIndent();
 
-        Action<string> fn = newLine ? AppendIndentedLine : AppendIndented;
-        if (!indented)
-            fn = newLine ? AppendLine : Append;
-
-        fn("}");
+        GetAppendFn(newLine, indented)("}");
     }
 
     public void IncreaseIndent() => _indent++;
@@ -117,10 +108,7 @@ public class GeneratorState
 
     public void Property(Visibility visibility, string type, string name, bool newLine = true, bool indented = true)
     {
-        Action<string> fn = newLine ? AppendIndentedLine : AppendIndented;
-        if (!indented)
-            fn = newLine ? AppendLine : Append;
-
+        var fn = GetAppendFn(newLine, indented);
         var vis = String(visibility);
         if (vis.Length > 0)
             fn($"{vis} {type} {name}");
@@ -139,9 +127,7 @@ public class GeneratorState
 
     public void AutoGet(Visibility visibility, bool newLine = true, bool indented = true)
     {
-        Action<string> fn = newLine ? AppendIndentedLine : AppendIndented;
-        if (!indented)
-            fn = newLine ? AppendLine : Append;
+        var fn = GetAppendFn(newLine, indented);
 
         var vis = String(visibility);
         if (vis.Length > 0)
@@ -152,10 +138,7 @@ public class GeneratorState
 
     public void AutoSet(Visibility visibility, bool newLine = true, bool indented = true)
     {
-        Action<string> fn = newLine ? AppendIndentedLine : AppendIndented;
-        if (!indented)
-            fn = newLine ? AppendLine : Append;
-
+        var fn = GetAppendFn(newLine, indented);
         var vis = String(visibility);
         if (vis.Length > 0)
             fn($"{vis} set;");
@@ -211,15 +194,19 @@ public class GeneratorState
 
     private void AppendLine(string value = "") => _output.AppendLine(value);
 
-    private string Indent()
-    {
-        var sb = new StringBuilder(32);
-        for (int i = 0; i < _indent; i++)
+    private Action<string> GetAppendFn(bool newLine = true, bool indented = true)
+        => newLine switch 
         {
-            sb.Append("    ");
-        }
-        return sb.ToString();
-    }
+            true when indented => AppendIndentedLine,
+            true when indented is false => AppendLine,
+            false when indented => AppendIndented,
+            _ => Append
+        };
+
+    private string Indent()
+        => string
+            .Join("", Enumerable.Range(0, _indent)
+            .Select(x => "    "));
 
     private string ParameterList(List<(string, string)> parameterNamesAndTypes)
     {
@@ -237,18 +224,15 @@ public class GeneratorState
     }
 
     private static string String(Visibility vis)
-    {
-        return vis switch
+        => vis switch
         {
             Visibility.Public => "public",
             Visibility.Private => "private",
             _ => "",
         };
-    }
 
     private static string String(ObjectType ot)
-    {
-        return ot switch
+        => ot switch
         {
             ObjectType.Enum => "enum",
             ObjectType.Class => "class",
@@ -256,5 +240,4 @@ public class GeneratorState
             ObjectType.Interface => "interface",
             _ => "",
         };
-    }
 }

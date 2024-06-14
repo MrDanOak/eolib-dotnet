@@ -19,8 +19,8 @@ public class ProtocolIncrementalGenerator : IIncrementalGenerator
 
         var generatorOptions = context.AnalyzerConfigOptionsProvider.Select(static (configOptions, _) =>
         {
-            if (!configOptions.GlobalOptions.TryGetValue("build_property.projectdir", out var projectRoot) ||
-                !configOptions.GlobalOptions.TryGetValue(ProtocolGeneratorOptions.InputDirectoryOption, out var inputDirectory))
+            if (configOptions.GlobalOptions.TryGetValue("build_property.projectdir", out var projectRoot) is false ||
+                configOptions.GlobalOptions.TryGetValue(ProtocolGeneratorOptions.InputDirectoryOption, out var inputDirectory) is false)
                 return ProtocolGeneratorOptions.Empty;
 
             return new ProtocolGeneratorOptions(projectRoot, inputDirectory);
@@ -61,20 +61,16 @@ public class ProtocolIncrementalGenerator : IIncrementalGenerator
             var serializer = new XmlSerializer(typeof(ProtocolSpec));
             var model = (ProtocolSpec)serializer.Deserialize(ms);
 
-            foreach (var e in model.Enums)
+            var duplicatedEnums = model.Enums.Where(x => TypeMapper.Instance.RegisterEnum(x.Name, x.Type) is false);
+            foreach (var e in duplicatedEnums)
             {
-                if (!TypeMapper.Instance.RegisterEnum(e.Name, e.Type))
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(ddDuplicateTypeWarning, Location.None, e.Name));
-                }
+                context.ReportDiagnostic(Diagnostic.Create(ddDuplicateTypeWarning, Location.None, e.Name));
             }
 
-            foreach (var s in model.Structs)
+            var duplicatedStructs = model.Structs.Where(x => TypeMapper.Instance.RegisterStruct(x.Name, x) is false);
+            foreach (var s in duplicatedStructs)
             {
-                if (!TypeMapper.Instance.RegisterStruct(s.Name, s))
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(ddDuplicateTypeWarning, Location.None, s.Name));
-                }
+                context.ReportDiagnostic(Diagnostic.Create(ddDuplicateTypeWarning, Location.None, s.Name));
             }
 
             parsedFiles.Add((file.Path, model));
