@@ -21,6 +21,8 @@ public abstract class BaseInstruction : IProtocolInstruction
     public virtual bool HasProperty => !string.IsNullOrWhiteSpace(Name);
 
     protected virtual bool IsReadOnly => false;
+    
+    private bool IsNotReadOnly => IsReadOnly is false;
 
     private bool IsNotReadOnly => IsReadOnly is false;
     

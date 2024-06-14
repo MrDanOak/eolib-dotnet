@@ -31,7 +31,6 @@ public class ArrayInstruction : BaseInstruction
         var trailingDelimiter = _xmlArrayInstruction.TrailingDelimiter.HasValue is false || _xmlArrayInstruction.TrailingDelimiter.Value;
 
         AssertLength(state, _xmlArrayInstruction.Length);
-
         if (string.IsNullOrWhiteSpace(_xmlArrayInstruction.Length) is false)
         {
             var lenExpr = GetLengthExpression(_xmlArrayInstruction.Length, outerInstructions);
